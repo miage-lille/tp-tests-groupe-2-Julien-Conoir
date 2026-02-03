@@ -26,10 +26,12 @@ describe('PrismaWebinarRepository', () => {
       },
     });
 
-    await asyncExec(`DATABASE_URL=${dbUrl} npx prisma migrate deploy`);
+    await asyncExec(`npx prisma migrate deploy`, {
+      env: { ...process.env, DATABASE_URL: dbUrl }
+    });
 
     return prismaClient.$connect();
-  });
+  }, 60000);
 
   beforeEach(async () => {
     repository = new PrismaWebinarRepository(prismaClient);
@@ -66,6 +68,77 @@ describe('PrismaWebinarRepository', () => {
         endDate: new Date('2022-01-01T01:00:00Z'),
         seats: 100,
         });
+    });
+  });
+
+  describe('Scenario : repository.findById', () => {
+    it('should find a webinar by id', async () => {
+      await prismaClient.webinar.create({
+        data: {
+          id: 'webinar-id',
+          organizerId: 'organizer-id',
+          title: 'Webinar title',
+          startDate: new Date('2022-01-01T00:00:00Z'),
+          endDate: new Date('2022-01-01T01:00:00Z'),
+          seats: 100,
+        },
+      });
+
+      const webinar = await repository.findById('webinar-id');
+
+      expect(webinar).toBeInstanceOf(Webinar);
+      expect(webinar?.props).toEqual({
+        id: 'webinar-id',
+        organizerId: 'organizer-id',
+        title: 'Webinar title',
+        startDate: new Date('2022-01-01T00:00:00Z'),
+        endDate: new Date('2022-01-01T01:00:00Z'),
+        seats: 100,
+      });
+    });
+
+    it('should return null if webinar does not exist', async () => {
+      const webinar = await repository.findById('non-existent-id');
+
+      expect(webinar).toBeNull();
+    });
+  });
+
+  describe('Scenario : repository.update', () => {
+    it('should update a webinar', async () => {
+      await prismaClient.webinar.create({
+        data: {
+          id: 'webinar-id',
+          organizerId: 'organizer-id',
+          title: 'Webinar title',
+          startDate: new Date('2022-01-01T00:00:00Z'),
+          endDate: new Date('2022-01-01T01:00:00Z'),
+          seats: 100,
+        },
+      });
+
+      const updatedWebinar = new Webinar({
+        id: 'webinar-id',
+        organizerId: 'organizer-id',
+        title: 'Updated Webinar title',
+        startDate: new Date('2022-01-01T00:00:00Z'),
+        endDate: new Date('2022-01-01T01:00:00Z'),
+        seats: 200,
+      });
+
+      await repository.update(updatedWebinar);
+
+      const maybeWebinar = await prismaClient.webinar.findUnique({
+        where: { id: 'webinar-id' },
+      });
+      expect(maybeWebinar).toEqual({
+        id: 'webinar-id',
+        organizerId: 'organizer-id',
+        title: 'Updated Webinar title',
+        startDate: new Date('2022-01-01T00:00:00Z'),
+        endDate: new Date('2022-01-01T01:00:00Z'),
+        seats: 200,
+      });
     });
   });
 });
